@@ -7,6 +7,7 @@
 - 本地上传 JPG、PNG、WebP 图片，支持预览和拖拽
 - 预设阿里云百炼、OpenAI，也可填写任意 OpenAI-compatible Base URL
 - API Key 由用户在页面填写，仅随本次分析请求发送，不保存到磁盘
+- 分析提示词直接在页面编辑，刷新后恢复项目默认值
 - 展示风险结论、模型置信度、判断依据和人工复核建议
 - 不包含地图抓取、Google Maps、坐标解析或截图功能
 
@@ -41,11 +42,13 @@ python app.py
 
 | 服务商 | Base URL | 默认模型 |
 | --- | --- | --- |
-| 阿里云百炼 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen3-vl-plus` |
+| 阿里云百炼 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen3.6-plus` |
 | OpenAI | `https://api.openai.com/v1` | `gpt-4.1-mini` |
 | 自定义 | 用户填写 | 用户填写 |
 
 自定义接口需要兼容 OpenAI Chat Completions、多模态 `image_url` 输入及 JSON Object 输出。不同服务的模型名称和能力可能变化，请以服务商文档为准。
+
+原项目使用的是 `qwen3-vl-plus`。本项目默认选择更新的 `qwen3.6-plus`，模型输入框仍可自由修改，便于对比其他视觉模型。
 
 ## 使用效果
 

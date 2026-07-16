@@ -12,7 +12,7 @@ APP_DIR = Path(__file__).parent
 MAX_IMAGE_SIZE = 10 * 1024 * 1024
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
-SYSTEM_PROMPT = """你是一位谨慎的遥感图像分析专家。请判断用户上传的图片中是否存在疑似露天垃圾堆放或非法倾倒区域。
+DEFAULT_PROMPT = """你是一位谨慎的遥感图像分析专家。请判断用户上传的图片中是否存在疑似露天垃圾堆放或非法倾倒区域。
 重点观察：道路或道路尽头附近的不规则堆积物；远离正常居民区、学校、医院等区域的异常堆放；与施工、料场、自然裸地明显不同的纹理和分布。
 仅依据图像中可见信息判断，不要虚构地点或背景。单张图片不能构成执法结论；信息不足时应降低置信度并说明局限。"""
 
@@ -63,6 +63,7 @@ async def detect(
     api_key: str = Form(...),
     base_url: str = Form(...),
     model: str = Form(...),
+    prompt: str = Form(...),
 ):
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(status_code=400, detail="仅支持 JPG、PNG 或 WebP 图片")
@@ -71,6 +72,8 @@ async def detect(
         raise HTTPException(status_code=400, detail="图片不能为空且不能超过 10MB")
     if not api_key.strip() or not model.strip():
         raise HTTPException(status_code=400, detail="API Key 和模型名称不能为空")
+    if not prompt.strip() or len(prompt) > 4000:
+        raise HTTPException(status_code=400, detail="分析提示词不能为空且不能超过 4000 个字符")
 
     client = AsyncOpenAI(api_key=api_key.strip(), base_url=validate_base_url(base_url), timeout=90.0)
     data_url = f"data:{file.content_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
@@ -80,7 +83,7 @@ async def detect(
         completion = await client.chat.completions.create(
             model=model.strip(),
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": prompt.strip()},
                 {"role": "user", "content": [
                     {"type": "image_url", "image_url": {"url": data_url}},
                     {"type": "text", "text": prompt},
