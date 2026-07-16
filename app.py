@@ -12,9 +12,14 @@ APP_DIR = Path(__file__).parent
 MAX_IMAGE_SIZE = 10 * 1024 * 1024
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
-DEFAULT_PROMPT = """你是一位谨慎的遥感图像分析专家。请判断用户上传的图片中是否存在疑似露天垃圾堆放或非法倾倒区域。
-重点观察：道路或道路尽头附近的不规则堆积物；远离正常居民区、学校、医院等区域的异常堆放；与施工、料场、自然裸地明显不同的纹理和分布。
-仅依据图像中可见信息判断，不要虚构地点或背景。单张图片不能构成执法结论；信息不足时应降低置信度并说明局限。"""
+DEFAULT_PROMPT = """
+你是一位专业的卫星图像分析专家，专门识别垃圾倾倒后的地点。
+垃圾倾倒后的地方的一些典型特征: 
+1、垃圾堆位于公路附近或者道路的尽头(车辆开过去倾倒，倾倒后车辆离开)。
+2、不和居住区/医院/工厂/学校等建筑在一起，因为如果有附近居民会举报
+3、偷偷进行，倾倒位置不会出现新的类似道路施工/建筑施工的痕迹
+只从上面3点来判断是否为垃圾倾倒地点。不要考虑其他因素。
+"""
 
 app = FastAPI(title="遥感图像垃圾倾倒研判", version="1.0.0")
 
@@ -36,15 +41,15 @@ def parse_result(content: str) -> dict:
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=502, detail="模型未返回有效 JSON，请换用支持结构化输出的模型") from exc
 
-    required = {"is_dumping", "confidence", "analysis", "limitations"}
+    required = {"is_dumping", "analysis_logic"}
     if not isinstance(result, dict) or not required.issubset(result):
         raise HTTPException(status_code=502, detail="模型返回内容缺少必要字段")
-    result["is_dumping"] = bool(result["is_dumping"])
-    try:
-        result["confidence"] = max(0, min(100, int(result["confidence"])))
-    except (TypeError, ValueError):
-        result["confidence"] = 0
-    return result
+    return {
+        "is_dumping": bool(result["is_dumping"]),
+        "analysis": str(result["analysis_logic"]),
+        "confidence": None,
+        "limitations": "模型结果仅用于辅助筛查，请结合原始影像、时相变化和现场核查复核。",
+    }
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -75,23 +80,52 @@ async def detect(
     if not prompt.strip() or len(prompt) > 4000:
         raise HTTPException(status_code=400, detail="分析提示词不能为空且不能超过 4000 个字符")
 
-    client = AsyncOpenAI(api_key=api_key.strip(), base_url=validate_base_url(base_url), timeout=90.0)
+    normalized_base_url = validate_base_url(base_url)
+    client = AsyncOpenAI(api_key=api_key.strip(), base_url=normalized_base_url, timeout=90.0)
     data_url = f"data:{file.content_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
-    prompt = """分析这张图片，并只返回 JSON：
-{"is_dumping": boolean, "confidence": 0到100的整数, "analysis": "可见依据和判断过程", "limitations": "局限与人工复核建议"}"""
-    try:
-        completion = await client.chat.completions.create(
-            model=model.strip(),
-            messages=[
-                {"role": "system", "content": prompt.strip()},
-                {"role": "user", "content": [
+    request_kwargs = {
+        "model": model.strip(),
+        "messages": [
+            {"role": "system", "content": prompt.strip()},
+            {
+                "role": "user",
+                "content": [
                     {"type": "image_url", "image_url": {"url": data_url}},
-                    {"type": "text", "text": prompt},
-                ]},
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.1,
-        )
+                    {"type": "text", "text": "分析图片中是否可能为垃圾倾倒地点？"},
+                ],
+            },
+        ],
+        "stream": False,
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "garbage_dumping_analysis",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "is_dumping": {
+                            "type": "boolean",
+                            "description": "是否为垃圾倾倒地点",
+                        },
+                        "analysis_logic": {
+                            "type": "string",
+                            "description": "分析逻辑和判断依据",
+                        },
+                    },
+                    "required": ["is_dumping", "analysis_logic"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+    }
+    if "dashscope.aliyuncs.com" in normalized_base_url:
+        request_kwargs["extra_body"] = {
+            "enable_thinking": True,
+            "thinking_budget": 1000,
+        }
+    try:
+        completion = await client.chat.completions.create(**request_kwargs)
     except Exception as exc:
         message = str(exc)
         if len(message) > 300:

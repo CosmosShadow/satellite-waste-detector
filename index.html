@@ -17,11 +17,14 @@
         <p class="section-label">模型服务</p>
         <div class="field"><label for="provider">服务商</label><select id="provider"><option value="aliyun">阿里云百炼</option><option value="openai">OpenAI</option><option value="custom">自定义兼容接口</option></select></div>
         <div class="field"><label for="baseUrl">Base URL</label><input id="baseUrl" value="https://dashscope.aliyuncs.com/compatible-mode/v1" autocomplete="url"></div>
-        <div class="field"><label for="model">多模态模型</label><input id="model" value="qwen3.6-plus" autocomplete="off"></div>
+        <div class="field"><label for="model">多模态模型</label><input id="model" value="qwen3-vl-plus" autocomplete="off"></div>
         <div class="field"><label for="apiKey">API Key</label><div class="key-wrap"><input id="apiKey" type="password" placeholder="仅用于本次请求" autocomplete="off"><button class="text-btn" id="toggleKey" type="button">显示</button></div></div>
-        <div class="field"><label for="prompt">分析提示词</label><textarea id="prompt" maxlength="4000">你是一位谨慎的遥感图像分析专家。请判断用户上传的图片中是否存在疑似露天垃圾堆放或非法倾倒区域。
-重点观察：道路或道路尽头附近的不规则堆积物；远离正常居民区、学校、医院等区域的异常堆放；与施工、料场、自然裸地明显不同的纹理和分布。
-仅依据图像中可见信息判断，不要虚构地点或背景。单张图片不能构成执法结论；信息不足时应降低置信度并说明局限。</textarea><div class="hint">本次会话临时生效，刷新页面后恢复默认内容</div></div>
+        <div class="field"><label for="prompt">分析提示词</label><textarea id="prompt" maxlength="4000">你是一位专业的卫星图像分析专家，专门识别垃圾倾倒后的地点。
+垃圾倾倒后的地方的一些典型特征: 
+1、垃圾堆位于公路附近或者道路的尽头(车辆开过去倾倒，倾倒后车辆离开)。
+2、不和居住区/医院/工厂/学校等建筑在一起，因为如果有附近居民会举报
+3、偷偷进行，倾倒位置不会出现新的类似道路施工/建筑施工的痕迹
+只从上面3点来判断是否为垃圾倾倒地点。不要考虑其他因素。</textarea><div class="hint">本次会话临时生效，刷新页面后恢复默认内容</div></div>
         <hr class="divider">
         <p class="section-label">待分析图片</p>
         <div class="drop" id="drop" role="button" tabindex="0">
@@ -48,7 +51,7 @@
     </section>
   </main>
   <script>
-    const presets={aliyun:{url:'https://dashscope.aliyuncs.com/compatible-mode/v1',model:'qwen3.6-plus'},openai:{url:'https://api.openai.com/v1',model:'gpt-4.1-mini'}};
+    const presets={aliyun:{url:'https://dashscope.aliyuncs.com/compatible-mode/v1',model:'qwen3-vl-plus'},openai:{url:'https://api.openai.com/v1',model:'gpt-4.1-mini'}};
     const $=id=>document.getElementById(id), provider=$('provider'),baseUrl=$('baseUrl'),model=$('model'),apiKey=$('apiKey'),prompt=$('prompt'),file=$('file'),drop=$('drop'),submit=$('submit');let selected=null,previewUrl=null;
     provider.onchange=()=>{const p=presets[provider.value];if(p){baseUrl.value=p.url;model.value=p.model}else{baseUrl.focus()}};
     $('toggleKey').onclick=()=>{const show=apiKey.type==='password';apiKey.type=show?'text':'password';$('toggleKey').textContent=show?'隐藏':'显示'};
@@ -56,7 +59,7 @@
     file.onchange=()=>setFile(file.files[0]);['dragenter','dragover'].forEach(n=>drop.addEventListener(n,e=>{e.preventDefault();drop.classList.add('drag')}));['dragleave','drop'].forEach(n=>drop.addEventListener(n,e=>{e.preventDefault();drop.classList.remove('drag')}));drop.ondrop=e=>setFile(e.dataTransfer.files[0]);
     function setFile(f){$('error').style.display='none';if(!f)return;if(!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size>10*1024*1024){showError('请选择 10MB 以内的 JPG、PNG 或 WebP 图片');return}selected=f;$('fileName').textContent=f.name;if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl=URL.createObjectURL(f);$('preview').src=previewUrl;$('preview').style.display='block';$('empty').style.display='none';submit.disabled=false;$('result').classList.remove('show')}
     function showError(msg){$('error').textContent=msg;$('error').style.display='block'}
-    submit.onclick=async()=>{if(!selected||!apiKey.value.trim()||!prompt.value.trim()){showError('请先选择图片，并填写 API Key 和分析提示词');return}submit.disabled=true;submit.querySelector('.normal').style.display='none';submit.querySelector('.loading').style.display='flex';$('error').style.display='none';const data=new FormData();data.append('file',selected);data.append('api_key',apiKey.value.trim());data.append('base_url',baseUrl.value.trim());data.append('model',model.value.trim());data.append('prompt',prompt.value.trim());try{const res=await fetch('/api/detect',{method:'POST',body:data});const body=await res.json();if(!res.ok)throw new Error(body.detail||'分析失败');const risk=body.is_dumping;$('badge').className='badge '+(risk?'risk':'clear');$('badge').textContent=risk?'发现疑似风险':'未发现明显风险';$('title').textContent=risk?'建议优先安排人工复核':'当前图像未见明显倾倒特征';$('confidence').textContent=`模型置信度 ${body.confidence}%`;$('analysis').textContent=body.analysis;$('limitations').textContent=body.limitations;$('result').classList.add('show');$('result').scrollIntoView({behavior:'smooth',block:'nearest'})}catch(e){showError(e.message)}finally{submit.disabled=false;submit.querySelector('.normal').style.display='inline';submit.querySelector('.loading').style.display='none'}};
+    submit.onclick=async()=>{if(!selected||!apiKey.value.trim()||!prompt.value.trim()){showError('请先选择图片，并填写 API Key 和分析提示词');return}submit.disabled=true;submit.querySelector('.normal').style.display='none';submit.querySelector('.loading').style.display='flex';$('error').style.display='none';const data=new FormData();data.append('file',selected);data.append('api_key',apiKey.value.trim());data.append('base_url',baseUrl.value.trim());data.append('model',model.value.trim());data.append('prompt',prompt.value.trim());try{const res=await fetch('/api/detect',{method:'POST',body:data});const body=await res.json();if(!res.ok)throw new Error(body.detail||'分析失败');const risk=body.is_dumping;$('badge').className='badge '+(risk?'risk':'clear');$('badge').textContent=risk?'发现疑似风险':'未发现明显风险';$('title').textContent=risk?'建议优先安排人工复核':'当前图像未见明显倾倒特征';$('confidence').textContent=Number.isInteger(body.confidence)?`模型置信度 ${body.confidence}%`:'原始模型未返回置信度';$('analysis').textContent=body.analysis;$('limitations').textContent=body.limitations;$('result').classList.add('show');$('result').scrollIntoView({behavior:'smooth',block:'nearest'})}catch(e){showError(e.message)}finally{submit.disabled=false;submit.querySelector('.normal').style.display='inline';submit.querySelector('.loading').style.display='none'}};
   </script>
 </body>
 </html>
