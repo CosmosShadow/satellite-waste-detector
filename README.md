@@ -68,6 +68,24 @@ python app.py
 - 是否发现疑似垃圾倾倒风险
 - 基于图像可见内容的判断依据
 
+### 效果截图
+
+疑似垃圾倾倒区域：
+
+![检测到垃圾倾倒嫌疑](docs/screenshots/dumping-taishan.png)
+
+疑似垃圾倾倒区域：
+
+![检测到垃圾倾倒嫌疑](docs/screenshots/dumping-wuyu.png)
+
+疑似垃圾倾倒区域：
+
+![检测到垃圾倾倒嫌疑](docs/screenshots/dumping-zhutang.png)
+
+非垃圾区域：
+
+![未检测到垃圾倾倒嫌疑](docs/screenshots/clear-guxian.png)
+
 模型输出仅用于辅助筛查。遥感分辨率、拍摄时间、遮挡、施工料场和自然裸地等因素都可能造成误判，结果不能替代现场核查或作为执法结论。
 
 ## 安全说明
