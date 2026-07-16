@@ -42,22 +42,22 @@ python app.py
 
 | 服务商 | Base URL | 默认模型 |
 | --- | --- | --- |
-| 阿里云百炼 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen3-vl-plus` |
+| 阿里云百炼 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen3.6-plus` |
 | OpenAI | `https://api.openai.com/v1` | `gpt-4.1-mini` |
 | 自定义 | 用户填写 | 用户填写 |
 
 自定义接口需要兼容 OpenAI Chat Completions、多模态 `image_url` 输入及 JSON Schema 输出。不同服务的模型名称和能力可能变化，请以服务商文档为准。
 
-本项目默认沿用原项目的 `qwen3-vl-plus` 和原始提示词。模型输入框仍可自由修改，便于对比其他视觉模型。
+本项目默认使用 `qwen3.6-plus` 和针对施工裸地误报优化后的提示词。模型输入框和提示词仍可自由修改，便于对比其他视觉模型。
 
 ## 基准测试
 
-2026 年 7 月 16 日，使用阿里云百炼 `qwen3-vl-plus`、项目默认提示词和仓库内 36 张 JPEG 样本进行测试：
+2026 年 7 月 16 日，使用阿里云百炼 `qwen3.6-plus`、项目默认提示词和仓库内 36 张 JPEG 样本进行测试：
 
-- 正确识别：30/36
-- 准确率：83.33%
-- 垃圾样本漏报：1 张
-- 非垃圾样本误报：5 张
+- 正确识别：31/36
+- 准确率：86.11%
+- 垃圾样本漏报：2 张
+- 非垃圾样本误报：3 张
 
 该结果用于说明当前测试口径，不代表模型在其他数据集上的固定准确率。云端模型版本、推理服务和图片质量变化都可能影响结果。
 
