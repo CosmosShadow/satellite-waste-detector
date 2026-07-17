@@ -98,3 +98,9 @@ python app.py
 ## 开源协议
 
 [MIT](LICENSE)
+
+## 交流
+
+如果你对遥感图像识别、多模态模型落地或环保巡查场景感兴趣，可以扫码交流。
+
+![扫码交流](docs/assets/qrcode.png)
